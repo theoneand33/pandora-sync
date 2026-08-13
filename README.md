@@ -1,6 +1,6 @@
 # pandora-sync - separate website for P2P instance sync
 
-Standalone repo for the launcher's sync link site. Deploy to **GitHub Pages** (static) or **Coolify** (relay + static).
+Standalone repo for the launcher's sync link site. Deploy to **GitHub Pages** or **Cloudflare Pages** (static) plus **Coolify** or **Cloudflare Workers** (relay).
 
 Original launcher stays offline and vendored. This repo holds only the domain website.
 
@@ -14,6 +14,10 @@ relay/              tiny relay for Coolify — PUT/GET /p2p/<token>
   src/main.rs
   Dockerfile
   docker-compose.yml
+relay-worker/       same relay API as a Cloudflare Worker — PUT/GET /p2p/<token>
+  wrangler.toml
+  src/index.js
+  test.mjs
 .github/workflows/pages.yml  deploy to Pages on push
 ```
 
@@ -44,6 +48,35 @@ Coolify → New Service → From Git → pick this repo → set:
 Or `docker compose -f relay/docker-compose.yml up -d`.
 
 See `relay/README.md` for API.
+
+### Cloudflare (Pages static + Worker relay)
+
+The `relay-worker/` Worker implements the same API as the Rust relay. The launcher
+needs no changes.
+
+1. Pages: create a Pages project for this repo. No build command; output dir `.`.
+2. Worker: `cd relay-worker && npx wrangler r2 bucket create pandora-relay && npx wrangler deploy`.
+3. Point the `p2p-relay` meta tag in `index.html` (and the launcher config) at the Worker URL.
+4. Test locally: `node relay-worker/test.mjs`.
+
+Limits: Cloudflare caps request bodies at 100 MB (free) / 500 MB (paid).
+`MAX_BYTES` in `wrangler.toml` defaults to 100 MB; larger bundles get a 413.
+The free-plan cron trigger runs daily; exact 30-min TTL still holds because
+every `GET` checks the age.
+
+## Chunked upload protocol
+
+Both relays accept the same optional headers on `PUT /p2p/<token>`:
+
+- `X-Part-Index`: the part number, starts at 0. Default 0.
+- `X-Total-Parts`: the total number of parts. Default 1.
+
+Old clients that send no headers still work; a headerless PUT is a single-part
+upload. The relay stores part `i` as `<token>.part<i>` and, when the part with
+`X-Part-Index == X-Total-Parts - 1` arrives, concatenates all parts into
+`<token>`, deletes the parts, and returns 200. The TTL starts when assembly
+finishes. `MAX_BYTES` caps each part, so a bundle larger than one request can
+be sent as multiple parts.
 
 ## Launcher config
 

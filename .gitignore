@@ -1,2 +1,4 @@
 /target
+relay/target
 /data
+relay-worker/.wrangler

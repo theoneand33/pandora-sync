@@ -1,0 +1,14 @@
+name = "pandora-relay"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+TTL_MINUTES = "30"
+MAX_BYTES = "104857600"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "pandora-relay"
+
+[triggers]
+crons = ["0 */6 * * *"]
