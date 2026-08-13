@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pandora P2P Sync</title>
+<meta name="p2p-relay" content="" />
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.5; }
+  code, input { font-family: ui-monospace, monospace; }
+  input { width: 100%; padding: 10px; font-size: 16px; }
+  button { padding: 10px 16px; font-size: 16px; cursor: pointer; }
+  .card { border: 1px solid #333; border-radius: 12px; padding: 16px; margin: 16px 0; }
+  a { color: #8ab4f8; }
+</style>
+</head>
+<body>
+<h1>Pandora P2P Sync</h1>
+<p>Separate website for syncing instances. Works with GitHub Pages (static) and a Coolify relay. The launcher uploads a filtered zip, this page fetches it.</p>
+
+<div class="card">
+  <h2>Receive</h2>
+  <p>Paste the link from the launcher. Works with <code>https://relay.example.com/p2p/&lt;token&gt;</code> or <code>?token=&lt;token&gt;</code>.</p>
+  <input id="link" placeholder="https://relay.example.com/p2p/..." />
+  <p>
+    <button id="download">Download bundle</button>
+    <span id="status"></span>
+  </p>
+  <p id="hint"></p>
+</div>
+
+<div class="card">
+  <h2>How it works</h2>
+  <ul>
+    <li><strong>GitHub Pages:</strong> hosts this static page only. Storage lives on the Coolify relay. No binary touches GitHub.</li>
+    <li><strong>Coolify:</strong> run the relay at <code>RELAY_URL</code> (<code>PUT /p2p/&lt;token&gt;</code> stores, <code>GET /p2p/&lt;token&gt;</code> returns, 30 min TTL). See <code>site/README.md</code>.</li>
+    <li>The launcher bundle is a zip filtered by <code>ExportOptions</code> (mods/config/etc). Receiver validates every path via <code>SafePath</code>.</li>
+  </ul>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+if (params.get("token")) $("link").value = params.get("token");
+if (params.get("url")) $("link").value = params.get("url");
+
+// Configure relay here for Pages, or inject via meta tag at build time
+function relayBase() {
+  const meta = document.querySelector('meta[name="p2p-relay"]')?.content?.trim();
+  if (meta) return meta.replace(/\/+$/, "");
+  // infer from ?relay= param or default
+  const r = params.get("relay");
+  if (r) return r.replace(/\/+$/, "");
+  return "";
+}
+
+function resolveUrl(input) {
+  input = input.trim();
+  if (!input) return null;
+  if (input.startsWith("http://") || input.startsWith("https://")) return input;
+  // bare token
+  const relay = relayBase();
+  if (!relay) return null;
+  return relay + "/p2p/" + encodeURIComponent(input);
+}
+
+$("download").onclick = async () => {
+  const url = resolveUrl($("link").value);
+  if (!url) {
+    $("status").textContent = "Set p2p_relay_url in launcher config, or paste a full https://.../p2p/<token> link.";
+    return;
+  }
+  $("status").textContent = "Downloading...";
+  $("hint").textContent = "";
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "pandora-share.zip";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    $("status").textContent = "Done. Import the zip in the launcher: Create Instance From File or Join via link.";
+    $("hint").innerHTML = 'Or paste the same link in launcher: <code>JoinP2pShare</code>.';
+  } catch (e) {
+    $("status").textContent = "Failed: " + e.message;
+  }
+};
+</script>
+</body>
+</html>
