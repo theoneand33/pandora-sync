@@ -93,5 +93,5 @@ async fn get_bundle(State(state): State<AppState>, Path(token): Path<String>) ->
 async fn delete_bundle(State(state): State<AppState>, Path(token): Path<String>) -> impl IntoResponse {
     let Some(token) = sanitize(&token) else { return (StatusCode::BAD_REQUEST, "bad token").into_response(); };
     let _ = fs::remove_file(state.dir.join(token)).await;
-    StatusCode::NO_CONTENT
+    (StatusCode::NO_CONTENT, "").into_response()
 }
