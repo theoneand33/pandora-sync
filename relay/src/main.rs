@@ -3,7 +3,7 @@ use std::{path::PathBuf, time::{Duration, SystemTime}};
 use axum::{
     body::Bytes,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode, header},
+    http::{StatusCode, header},
     response::IntoResponse,
     routing::{get, put},
     Router,
@@ -71,7 +71,7 @@ fn sanitize(token: &str) -> Option<String> {
     Some(token.to_string())
 }
 
-async fn put_bundle(State(state): State<AppState>, Path(token): Path<String>, _headers: HeaderMap, body: Bytes) -> impl IntoResponse {
+async fn put_bundle(State(state): State<AppState>, Path(token): Path<String>, body: Bytes) -> impl IntoResponse {
     let Some(token) = sanitize(&token) else { return (StatusCode::BAD_REQUEST, "bad token").into_response(); };
     if body.len() > state.max_bytes { return (StatusCode::PAYLOAD_TOO_LARGE, "too large").into_response(); }
     let path = state.dir.join(&token);
@@ -84,6 +84,15 @@ async fn put_bundle(State(state): State<AppState>, Path(token): Path<String>, _h
 async fn get_bundle(State(state): State<AppState>, Path(token): Path<String>) -> impl IntoResponse {
     let Some(token) = sanitize(&token) else { return (StatusCode::BAD_REQUEST, "bad token").into_response(); };
     let path = state.dir.join(&token);
+    // enforce TTL lazily so GET returns 404 immediately after expiry even if sweeper has not run yet
+    if let Ok(meta) = fs::metadata(&path).await {
+        if let Ok(modified) = meta.modified() {
+            if SystemTime::now().duration_since(modified).unwrap_or_default() > state.ttl {
+                let _ = fs::remove_file(&path).await;
+                return (StatusCode::NOT_FOUND, "not found").into_response();
+            }
+        }
+    }
     match fs::read(&path).await {
         Ok(data) => ([(header::CONTENT_TYPE, "application/zip"), (header::CONTENT_DISPOSITION, "attachment; filename=\"share.zip\"")], data).into_response(),
         Err(_) => (StatusCode::NOT_FOUND, "not found").into_response(),

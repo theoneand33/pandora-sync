@@ -10,12 +10,5 @@ services:
       MAX_BYTES: 2147483648
     restart: unless-stopped
 
-  # optional: serve static site + proxy /p2p to relay
-  # caddy:
-  #   image: caddy:alpine
-  #   ports: ["80:80", "443:443"]
-  #   volumes: ["./Caddyfile:/etc/caddy/Caddyfile", "../:/srv"]
-  #   depends_on: [relay]
-
 volumes:
   relay_data:
