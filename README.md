@@ -1,4 +1,4 @@
-# pandora-sync — separate website for P2P instance sync
+# pandora-sync - separate website for P2P instance sync
 
 Standalone repo for the launcher's sync link site. Deploy to **GitHub Pages** (static) or **Coolify** (relay + static).
 
