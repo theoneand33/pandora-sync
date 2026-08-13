@@ -21,8 +21,8 @@
 
 <div class="card">
   <h2>Receive</h2>
-  <p>Paste the link from the launcher. Works with <code>https://relay.example.com/p2p/&lt;token&gt;</code> or <code>?token=&lt;token&gt;</code>.</p>
-  <input id="link" placeholder="https://relay.example.com/p2p/..." />
+  <p>Paste the link from the launcher. Works with <code>https://relay.theoneand33.dev/p2p/&lt;token&gt;</code> or <code>?token=&lt;token&gt;</code>.</p>
+  <input id="link" placeholder="https://relay.theoneand33.dev/p2p/..." />
   <p>
     <button id="download">Download bundle</button>
     <span id="status"></span>
@@ -34,7 +34,7 @@
   <h2>How it works</h2>
   <ul>
     <li><strong>GitHub Pages:</strong> hosts this static page only. Storage lives on the Coolify relay. No binary touches GitHub.</li>
-    <li><strong>Coolify:</strong> run the relay at <code>RELAY_URL</code> (<code>PUT /p2p/&lt;token&gt;</code> stores, <code>GET /p2p/&lt;token&gt;</code> returns, 30 min TTL). See <code>site/README.md</code>.</li>
+    <li><strong>Coolify:</strong> relay at <code>https://relay.theoneand33.dev</code> (<code>PUT /p2p/&lt;token&gt;</code> stores, <code>GET /p2p/&lt;token&gt;</code> returns, 30 min TTL). Pages at <code>https://theoneand33.github.io/pandora-sync/</code>.</li>
     <li>The launcher bundle is a zip filtered by <code>ExportOptions</code> (mods/config/etc). Receiver validates every path via <code>SafePath</code>.</li>
   </ul>
 </div>

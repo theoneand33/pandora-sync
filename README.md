@@ -22,7 +22,7 @@ relay/              tiny relay for Coolify — PUT/GET /p2p/<token>
 `crates/backend/src/p2p_sync.rs` checks `BackendConfig.p2p_relay_url` + `p2p_pages_url`:
 
 - empty → LAN direct `http://<lan-ip>:<port>/p2p/<token>` (ephemeral server, keep launcher open)
-- set → `PUT https://relay.example.com/p2p/<token>` then share `https://relay.../p2p/<token>` and `https://pages.../?token=<token>`
+- set → `PUT https://relay.theoneand33.dev/p2p/<token>` then share `https://relay.theoneand33.dev/p2p/<token>` and `https://theoneand33.github.io/pandora-sync/?token=<token>`
 
 Peer's launcher `GET`s the relay, or a browser hits the Pages site which `fetch()`es the relay and offers a zip download.
 
@@ -31,8 +31,8 @@ Peer's launcher `GET`s the relay, or a browser hits the Pages site which `fetch(
 ### GitHub Pages
 1. Push this repo to `user/pandora-sync`.
 2. Settings → Pages → Source: GitHub Actions.
-3. Edit `<meta name="p2p-relay" content="https://relay.example.com">` in `index.html` to your Coolify URL.
-4. Push — workflow deploys.
+3. `<meta name="p2p-relay" content="https://relay.theoneand33.dev">` is already set in `index.html`.
+4. Push — workflow deploys to `https://theoneand33.github.io/pandora-sync/`.
 
 ### Coolify (relay + optional static)
 Coolify → New Service → From Git → pick this repo → set:
@@ -47,9 +47,9 @@ See `relay/README.md` for API.
 
 ## Launcher config
 
-`config.json`:
+`config.json` (or Settings → Network → P2P):
 ```json
-{ "p2p_relay_url": "https://relay.example.com", "p2p_pages_url": "https://user.github.io/pandora-sync" }
+{ "p2p_relay_url": "https://relay.theoneand33.dev", "p2p_pages_url": "https://theoneand33.github.io/pandora-sync/" }
 ```
 
 ## Security
