@@ -1,4 +1,4 @@
-# pandora-sync — share page and relay in one deployment
+# pandora-sync - share page and relay in one deployment
 
 This repository hosts the share page and the relay backend on one origin.
 Deploy it once on Vercel, Netlify, or Cloudflare Pages.
@@ -28,7 +28,7 @@ relay-worker/                   Optional Cloudflare Worker relay with R2 persist
 `app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
 `public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
 
-## Deploy on Netlify — Recommended
+## Deploy on Netlify - Recommended
 
 `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
 
