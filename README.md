@@ -28,9 +28,9 @@ relay-worker/                   Optional Cloudflare Worker relay with R2 persist
 `app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
 `public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
 
-## Deploy on Netlify — Recommended (free and easiest)
+## Deploy on Netlify — Recommended
 
-Netlify is the easiest free option. `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
+`netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/theoneand33/pandora-sync)
 
