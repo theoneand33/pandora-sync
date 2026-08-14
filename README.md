@@ -1,4 +1,4 @@
-# Pandora sync - share page and relay in one deployment
+# Pandora sync - instance sharing for Pandora launcher enhanced
 
 This repository hosts the share page and the relay backend on one origin.
 Deploy it once on Vercel, Netlify, or Cloudflare Pages.
