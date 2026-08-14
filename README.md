@@ -41,6 +41,8 @@ The page and the API run on one origin.
 
 Netlify is the easiest free option. `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/theoneand33/pandora-sync)
+
 Netlify serves `public/` and routes API calls to the edge function that wraps `app.js:46`.
 
 1. Import this repository in the Netlify dashboard.
@@ -57,6 +59,8 @@ The free tier covers this workload. The store is in-memory per isolate. A cold s
 ## Deploy on Vercel
 
 Vercel runs `app.js:133` as a serverless function and serves `public/` as static files.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/theoneand33/pandora-sync)
 
 1. Import this repository in the Vercel dashboard.
 2. Leave the build command empty.
