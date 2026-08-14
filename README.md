@@ -8,26 +8,6 @@ The launcher uploads a filtered zip with `PUT /p2p/<token>`.
 The share page fetches the zip with `GET /p2p/<token>` and offers a download.
 The page and the API share the same origin, so no cross-site setup is required.
 
-## Layout
-
-```
-app.js                          Hono app: PUT/GET/DELETE /p2p/:token, GET /health. Vercel entry point.
-public/index.html               Share page. The deployment serves it at /.
-functions/p2p/[[token]].js      Cloudflare Pages function for /p2p/*. Wraps app.js.
-functions/health.js             Cloudflare Pages function for /health. Wraps app.js.
-netlify/edge-functions/index.js Netlify edge function. Wraps app.js via hono/netlify.
-netlify.toml                    Netlify configuration: publish = "public", edge routes for /p2p/* and /health.
-package.json                    Runtime dependency is hono. Dev dependency is @hono/node-server.
-scripts/dev.js                  Local dev server: mounts app.js at / and serves public/index.html at /.
-relay-worker/                   Optional Cloudflare Worker relay with R2 persistence.
-  wrangler.toml                 Worker config: R2 bucket pandora-relay, vars, cron.
-  src/index.js                  Worker implementation: same API with R2 and chunked assembly.
-  test.mjs                      Worker self-test with fake R2 bucket.
-```
-
-`app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
-`public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
-
 ## Deploy on Netlify - Recommended
 
 `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
@@ -108,6 +88,27 @@ Notes for the Worker:
 
 `scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
 The page and the API run on one origin.
+
+## Layout
+
+```
+app.js                          Hono app: PUT/GET/DELETE /p2p/:token, GET /health. Vercel entry point.
+public/index.html               Share page. The deployment serves it at /.
+functions/p2p/[[token]].js      Cloudflare Pages function for /p2p/*. Wraps app.js.
+functions/health.js             Cloudflare Pages function for /health. Wraps app.js.
+netlify/edge-functions/index.js Netlify edge function. Wraps app.js via hono/netlify.
+netlify.toml                    Netlify configuration: publish = "public", edge routes for /p2p/* and /health.
+package.json                    Runtime dependency is hono. Dev dependency is @hono/node-server.
+scripts/dev.js                  Local dev server: mounts app.js at / and serves public/index.html at /.
+relay-worker/                   Optional Cloudflare Worker relay with R2 persistence.
+  wrangler.toml                 Worker config: R2 bucket pandora-relay, vars, cron.
+  src/index.js                  Worker implementation: same API with R2 and chunked assembly.
+  test.mjs                      Worker self-test with fake R2 bucket.
+```
+
+`app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
+`public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
+
 
 ## Chunked upload protocol
 
