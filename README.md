@@ -28,15 +28,6 @@ relay-worker/                   Optional Cloudflare Worker relay with R2 persist
 `app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
 `public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
 
-## Local development
-
-1. Install dependencies with `npm install`.
-2. Start the server with `npm run dev`.
-3. Open `http://localhost:3000`.
-
-`scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
-The page and the API run on one origin.
-
 ## Deploy on Netlify — Recommended (free and easiest)
 
 Netlify is the easiest free option. `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
@@ -108,6 +99,15 @@ Notes for the Worker:
 - Cloudflare caps request bodies at 100 MB on the free plan and 500 MB on paid plans. The Worker returns 413 when a body exceeds `MAX_BYTES`.
 - `relay-worker/wrangler.toml:14` sets a cron of `0 */6 * * *` (every 6 hours). The cron only reclaims R2 storage. Every `GET` in `relay-worker/src/index.js:106` also checks TTL and returns 404 after expiry, so the 30-minute TTL holds even between crons.
 - The Worker returns permissive CORS headers at `relay-worker/src/index.js:5` and handles `OPTIONS` with 204.
+
+## Local development
+
+1. Install dependencies with `npm install`.
+2. Start the server with `npm run dev`.
+3. Open `http://localhost:3000`.
+
+`scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
+The page and the API run on one origin.
 
 ## Chunked upload protocol
 
