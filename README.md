@@ -37,6 +37,23 @@ relay-worker/                   Optional Cloudflare Worker relay with R2 persist
 `scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
 The page and the API run on one origin.
 
+## Deploy on Netlify — Recommended (free and easiest)
+
+Netlify is the easiest free option. `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
+
+Netlify serves `public/` and routes API calls to the edge function that wraps `app.js:46`.
+
+1. Import this repository in the Netlify dashboard.
+2. Leave the build command empty.
+3. Confirm that `netlify.toml:1` sets `publish = "public"`.
+4. Confirm that `netlify.toml:4` routes `/p2p/*` and `/health` to edge function `index`.
+5. Deploy the project.
+6. Test the deployment at `https://<your-deploy>/health`.
+
+`netlify.toml` already contains the publish directory and the edge routes.
+Set `TTL_MINUTES` and `MAX_BYTES` in the Netlify dashboard to override defaults.
+The free tier covers this workload. The store is in-memory per isolate. A cold start can delete bundles.
+
 ## Deploy on Vercel
 
 Vercel runs `app.js:133` as a serverless function and serves `public/` as static files.
@@ -51,22 +68,6 @@ Vercel runs `app.js:133` as a serverless function and serves `public/` as static
 No configuration file is required.
 Set `TTL_MINUTES` and `MAX_BYTES` in the Vercel dashboard if you need non-default limits.
 The default cap is 512 MiB per bundle. The default TTL is 30 minutes.
-
-## Deploy on Netlify
-
-Netlify serves `public/` and routes API calls to the edge function that wraps `app.js:46`.
-
-1. Import this repository in the Netlify dashboard.
-2. Leave the build command empty.
-3. Set the publish directory to `public`.
-4. Confirm that `netlify.toml:1` sets `publish = "public"`.
-5. Confirm that `netlify.toml:4` routes `/p2p/*` and `/health` to edge function `index`.
-6. Deploy the project.
-7. Test the deployment at `https://<your-deploy>/health`.
-
-`netlify.toml` already contains the publish directory and the edge routes.
-Set `TTL_MINUTES` and `MAX_BYTES` in the Netlify dashboard to override defaults.
-The store is in-memory per isolate. A cold start can delete bundles.
 
 ## Deploy on Cloudflare Pages
 
