@@ -1,58 +1,56 @@
-# pandora-sync - separate website for P2P instance sync
+# pandora-sync — share page and relay in one deployment
 
-Standalone repo for the launcher's sync link site. Deploy to **GitHub Pages** or **Cloudflare Pages** (static) plus **Coolify** or **Cloudflare Workers** (relay).
+This repo hosts the share page and the relay backend on one origin. Deploy it once on **Vercel**, **Netlify**, or **Cloudflare Pages**. You do not need a second service.
 
-Original launcher stays offline and vendored. This repo holds only the domain website.
+The launcher uploads a filtered zip with `PUT /p2p/<token>`. This page fetches it with `GET /p2p/<token>` and offers a download. Bundles are stored in the deployment's memory and expire after 30 minutes.
 
 ## Layout
 
 ```
-index.html          static GH Pages page (fetch from relay)
-README.md           this file
-relay/              tiny relay for Coolify — PUT/GET /p2p/<token>
-  Cargo.toml
-  src/main.rs
-  Dockerfile
-  docker-compose.yml
-relay-worker/       same relay API as a Cloudflare Worker — PUT/GET /p2p/<token>
+app.js                    Hono app: /p2p/<token> PUT/GET/DELETE, /health. Also the Vercel entry.
+public/index.html         Share page, served at / on every platform.
+functions/p2p/[[token]].js  Cloudflare Pages entry for /p2p/*
+functions/health.js       Cloudflare Pages entry for /health
+netlify/edge-functions/   Netlify edge function (index.js)
+netlify.toml              Netlify config: publish dir + edge function paths
+package.json              Deploys install hono automatically
+scripts/dev.js            Local dev server (npm run dev)
+relay-worker/             Cloudflare Worker relay (R2, chunked upload) — PUT/GET /p2p/<token>
   wrangler.toml
   src/index.js
   test.mjs
-.github/workflows/pages.yml  deploy to Pages on push
 ```
 
-## How it connects to the launcher
+## Local dev
 
-`crates/backend/src/p2p_sync.rs` checks `BackendConfig.p2p_relay_url` + `p2p_pages_url`:
+```sh
+npm install
+npm run dev
+```
 
-- empty → LAN direct `http://<lan-ip>:<port>/p2p/<token>` (ephemeral server, keep launcher open)
-- set → `PUT https://relay.theoneand33.dev/p2p/<token>` then share `https://relay.theoneand33.dev/p2p/<token>` and `https://theoneand33.github.io/pandora-sync/?token=<token>`
+Open `http://localhost:3000`. The page and the API run on one origin.
 
-Peer's launcher `GET`s the relay, or a browser hits the Pages site which `fetch()`es the relay and offers a zip download.
+## Deploy on Vercel
 
-## Deploy
+1. Import this repo in the Vercel dashboard.
+2. Vercel detects `app.js` as the Hono app automatically. Static files come from `public/`.
+3. Deploy. No config file needed.
 
-### GitHub Pages
-1. Push this repo to `user/pandora-sync`.
-2. Settings → Pages → Source: GitHub Actions.
-3. `<meta name="p2p-relay" content="https://relay.theoneand33.dev">` is already set in `index.html`.
-4. Push — workflow deploys to `https://theoneand33.github.io/pandora-sync/`.
+## Deploy on Netlify
 
-### Coolify (relay + optional static)
-Coolify → New Service → From Git → pick this repo → set:
-- Build pack: Dockerfile (`relay/Dockerfile`)
-- Port: 8080
-- Volume: `relay_data:/data`
-- Env: `TTL_MINUTES=30`, `MAX_BYTES=2147483648`
+1. Import this repo in the Netlify dashboard.
+2. `netlify.toml` sets `public/` as the publish dir and routes `/p2p/*` and `/health` to the edge function.
+3. Deploy. No build command needed.
 
-Or `docker compose -f relay/docker-compose.yml up -d`.
+## Deploy on Cloudflare Pages
 
-See `relay/README.md` for API.
+1. Create a Pages project in the Cloudflare dashboard and connect this repo.
+2. Build command: leave empty. Build output directory: `public`.
+3. Deploy. Pages serves `public/index.html` and runs the functions in `functions/`.
 
 ### Cloudflare (Pages static + Worker relay)
 
-The `relay-worker/` Worker implements the same API as the Rust relay. The launcher
-needs no changes.
+The `relay-worker/` Worker implements the same API as the Rust relay and the Hono app. The launcher needs no changes.
 
 1. Pages: create a Pages project for this repo. No build command; output dir `.`.
 2. Worker: `cd relay-worker && npx wrangler r2 bucket create pandora-relay && npx wrangler deploy`.
@@ -66,7 +64,7 @@ every `GET` checks the age.
 
 ## Chunked upload protocol
 
-Both relays accept the same optional headers on `PUT /p2p/<token>`:
+The Hono app and the `relay-worker/` Worker accept the same optional headers on `PUT /p2p/<token>`:
 
 - `X-Part-Index`: the part number, starts at 0. Default 0.
 - `X-Total-Parts`: the total number of parts. Default 1.
@@ -80,11 +78,28 @@ be sent as multiple parts.
 
 ## Launcher config
 
-`config.json` (or Settings → Network → P2P):
+Point the launcher at your deployment origin:
+
 ```json
-{ "p2p_relay_url": "https://relay.theoneand33.dev", "p2p_pages_url": "https://theoneand33.github.io/pandora-sync/" }
+{
+  "p2p_relay_url": "https://<your-deploy>/",
+  "p2p_pages_url": "https://<your-deploy>/"
+}
 ```
 
-## Security
+A share becomes `https://<your-deploy>/?token=<token>`. The page fetches the bundle from the same origin, so no cross-site config is needed.
 
-Token = `Uuid v4` in path. Possession = auth. Zip entries validated via `SafePath`. 2 GiB cap. Relay TTL 30 min. No logs of full token.
+## Security and limits
+
+- Token = `Uuid v4` in the path. Possession is the auth. Zip entries are validated by the receiver via `SafePath`.
+- Bundles live in memory only. A fresh cold start can lose a bundle, so share links are short-lived by design.
+- Default cap: 512 MiB per bundle. Default TTL: 30 minutes. Override with `MAX_BYTES` and `TTL_MINUTES` env vars where your platform exposes them.
+
+## API
+
+```
+PUT /p2p/<token>    body=zip -> 200, cap MAX_BYTES
+GET /p2p/<token>    -> application/zip or 404 after expiry
+DELETE /p2p/<token> -> 204
+GET /health         -> {"ok":true}
+```

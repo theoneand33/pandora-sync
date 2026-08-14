@@ -1,0 +1,10 @@
+[build]
+  publish = "public"
+
+[[edge_functions]]
+  path = "/p2p/*"
+  function = "index"
+
+[[edge_functions]]
+  path = "/health"
+  function = "index"

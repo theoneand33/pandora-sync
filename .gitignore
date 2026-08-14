@@ -1,4 +1,2 @@
-/target
-relay/target
-/data
+node_modules/
 relay-worker/.wrangler

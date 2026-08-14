@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Pandora P2P Sync</title>
-<meta name="p2p-relay" content="https://relay.theoneand33.dev" />
 <style>
   :root { color-scheme: dark; }
   body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; line-height: 1.5; }
@@ -17,12 +16,12 @@
 </head>
 <body>
 <h1>Pandora P2P Sync</h1>
-<p>Separate website for syncing instances. Works with GitHub Pages (static) and a Coolify relay. The launcher uploads a filtered zip, this page fetches it.</p>
+<p>Hosts the share page and the relay on one origin. Deploy this repo once on Vercel, Netlify, or Cloudflare — no separate service needed. The launcher uploads a filtered zip, this page fetches it.</p>
 
 <div class="card">
   <h2>Receive</h2>
-  <p>Paste the link from the launcher. Works with <code>https://relay.theoneand33.dev/p2p/&lt;token&gt;</code> or <code>?token=&lt;token&gt;</code>.</p>
-  <input id="link" placeholder="https://relay.theoneand33.dev/p2p/..." />
+  <p>Paste the token or the share link from the launcher. A full link like <code>&lt;this-origin&gt;/p2p/&lt;token&gt;</code>, or a bare token with <code>?token=&lt;token&gt;</code>.</p>
+  <input id="link" placeholder="/p2p/&lt;token&gt; or token" />
   <p>
     <button id="download">Download bundle</button>
     <span id="status"></span>
@@ -33,8 +32,8 @@
 <div class="card">
   <h2>How it works</h2>
   <ul>
-    <li><strong>GitHub Pages:</strong> hosts this static page only. Storage lives on the Coolify relay. No binary touches GitHub.</li>
-    <li><strong>Coolify:</strong> relay at <code>https://relay.theoneand33.dev</code> (<code>PUT /p2p/&lt;token&gt;</code> stores, <code>GET /p2p/&lt;token&gt;</code> returns, 30 min TTL). Pages at <code>https://theoneand33.github.io/pandora-sync/</code>.</li>
+    <li><strong>One deployment:</strong> the page and the relay are the same origin on Vercel, Netlify, or Cloudflare. The launcher <code>PUT</code>s to <code>/p2p/&lt;token&gt;</code>, this page <code>GET</code>s it back.</li>
+    <li><strong>Ephemeral:</strong> the token is the only auth. Bundles expire after 30 minutes and live in the deployment's memory, so a fresh cold start can lose one.</li>
     <li>The launcher bundle is a zip filtered by <code>ExportOptions</code> (mods/config/etc). Receiver validates every path via <code>SafePath</code>.</li>
   </ul>
 </div>
@@ -45,30 +44,27 @@ const params = new URLSearchParams(location.search);
 if (params.get("token")) $("link").value = params.get("token");
 if (params.get("url")) $("link").value = params.get("url");
 
-// Configure relay here for Pages, or inject via meta tag at build time
+// Relay is this same origin by default. Override with a meta tag or ?relay= if
+// you point this page at a separate relay deployment.
 function relayBase() {
   const meta = document.querySelector('meta[name="p2p-relay"]')?.content?.trim();
   if (meta) return meta.replace(/\/+$/, "");
-  // infer from ?relay= param or default
   const r = params.get("relay");
   if (r) return r.replace(/\/+$/, "");
-  return "";
+  return location.origin;
 }
 
 function resolveUrl(input) {
   input = input.trim();
   if (!input) return null;
   if (input.startsWith("http://") || input.startsWith("https://")) return input;
-  // bare token
-  const relay = relayBase();
-  if (!relay) return null;
-  return relay + "/p2p/" + encodeURIComponent(input);
+  return relayBase() + "/p2p/" + encodeURIComponent(input);
 }
 
 $("download").onclick = async () => {
   const url = resolveUrl($("link").value);
   if (!url) {
-    $("status").textContent = "Set p2p_relay_url in launcher config, or paste a full https://.../p2p/<token> link.";
+    $("status").textContent = "Paste a token or a full /p2p/<token> link.";
     return;
   }
   $("status").textContent = "Downloading...";
