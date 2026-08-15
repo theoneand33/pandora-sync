@@ -1,0 +1,24 @@
+{
+  "name": "pandora-sync",
+  "env": {
+    "TTL_MINUTES": {
+      "description": "Minutes a bundle lives before expiry",
+      "value": "30",
+      "required": false
+    },
+    "MAX_BYTES": {
+      "description": "Maximum bundle size in bytes",
+      "value": "536870912",
+      "required": false
+    }
+  },
+  "options": {
+    "allow-unauthenticated": true,
+    "memory": "512Mi",
+    "cpu": "1",
+    "port": 8080,
+    "http2": true,
+    "concurrency": 1,
+    "max-instances": 1
+  }
+}

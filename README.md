@@ -1,16 +1,66 @@
 # Pandora sync - instance sharing for Pandora launcher enhanced
 
 This repository hosts the share page and the relay backend on one origin.
-Deploy it once on Vercel, Netlify, or Cloudflare Pages.
+Deploy it once on Deno Deploy, Netlify, Cloudflare Pages, or Google Cloud Run.
 You do not need a second service.
 
 The launcher uploads a filtered zip with `PUT /p2p/<token>`.
 The share page fetches the zip with `GET /p2p/<token>` and offers a download.
 The page and the API share the same origin, so no cross-site setup is required.
 
-## Deploy on Netlify - Recommended
+## Layout
 
-`netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
+```
+app.js                          Hono app: PUT/GET/DELETE /p2p/:token, GET /health. Shared by all platforms.
+main.ts                         Deno Deploy entry point. Serves public/index.html at / and mounts app.js.
+deno.json                       Maps bare hono imports to npm:hono for Deno.
+server.js                       Node.js server for Google Cloud Run. Serves public/index.html at / and mounts app.js.
+Dockerfile                      Container image for Google Cloud Run. Runs server.js.
+app.json                        Google Cloud Run button config: env vars and instance options.
+public/index.html               Share page. The deployment serves it at /.
+functions/p2p/[[token]].js      Cloudflare Pages function for /p2p/*. Wraps app.js.
+functions/health.js             Cloudflare Pages function for /health. Wraps app.js.
+netlify/edge-functions/index.js Netlify edge function. Wraps app.js via hono/netlify.
+netlify.toml                    Netlify configuration: publish = "public", edge routes for /p2p/* and /health.
+package.json                    Runtime dependency is hono. Dev dependency is @hono/node-server.
+scripts/dev.js                  Local dev server: mounts app.js at / and serves public/index.html at /.
+relay-worker/                   Optional Cloudflare Worker relay with R2 persistence.
+  wrangler.toml                 Worker config: R2 bucket pandora-relay, vars, cron.
+  src/index.js                  Worker implementation: same API with R2 and chunked assembly.
+  test.mjs                      Worker self-test with fake R2 bucket.
+```
+
+`app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
+`public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
+
+## Local development
+
+1. Install dependencies with `npm install`.
+2. Start the server with `npm run dev`.
+3. Open `http://localhost:3000`.
+
+`scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
+The page and the API run on one origin.
+
+## Deploy on Deno Deploy — Recommended
+
+Deno Deploy is the recommended free option. `main.ts:7` serves `public/index.html` at `/` and `main.ts:6` mounts `app.js:46`, so one project hosts the page and the API. The free tier gives you 1M requests, 100 GB of egress, and 15 hours of CPU per month. It has no small request-body cap like serverless function platforms, so the full 512 MiB default works.
+
+[![Deploy on Deno](https://deno.com/button)](https://console.deno.com/new?clone=https://github.com/theoneand33/pandora-sync)
+
+1. Click the button and connect your GitHub account.
+2. Let the flow clone this repository and create a project.
+3. Confirm that the entry point is `main.ts`.
+4. Deploy the project.
+5. Test the deployment at `https://<your-deploy>/health`.
+
+`main.ts:9` passes `Deno.env` as the Hono env, so `app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the Deno Deploy dashboard.
+`deno.json` maps the bare `hono` imports in `app.js:1` to `npm:hono`.
+The store is in-memory per isolate. A cold start can delete bundles.
+
+## Deploy on Netlify
+
+Netlify is an easy free option. `netlify.toml:1` already sets the publish directory and the edge routes, so you only import the repo and deploy.
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/theoneand33/pandora-sync)
 
@@ -27,22 +77,20 @@ Netlify serves `public/` and routes API calls to the edge function that wraps `a
 Set `TTL_MINUTES` and `MAX_BYTES` in the Netlify dashboard to override defaults.
 The free tier covers this workload. The store is in-memory per isolate. A cold start can delete bundles.
 
-## Deploy on Vercel
+## Deploy on Google Cloud Run
 
-Vercel runs `app.js:133` as a serverless function and serves `public/` as static files.
+Google Cloud Run runs `server.js:11` as a long-lived Node.js service and `server.js:8` serves `public/index.html` at `/`. `Dockerfile` and `app.json` are already present, so the button builds and deploys the container.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/theoneand33/pandora-sync)
+[![Run on Google Cloud](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/theoneand33/pandora-sync.git)
 
-1. Import this repository in the Vercel dashboard.
-2. Leave the build command empty.
-3. Confirm that the framework preset is Other and the entry point is `app.js`.
-4. Confirm that the output directory is `public`.
-5. Deploy the project.
-6. Test the deployment at `https://<your-deploy>/health`.
+1. Click the button and sign in to Google Cloud.
+2. Confirm the values that `app.json` sets: env vars, memory, HTTP/2, and one instance.
+3. Let the button build `Dockerfile:1` and deploy the service.
+4. Test the deployment at `https://<your-deploy>/health`.
 
-No configuration file is required.
-Set `TTL_MINUTES` and `MAX_BYTES` in the Vercel dashboard if you need non-default limits.
-The default cap is 512 MiB per bundle. The default TTL is 30 minutes.
+`app.json:4` sets `TTL_MINUTES` and `app.json:9` sets `MAX_BYTES`. `app.json:20` enables HTTP/2 end-to-end, which removes the 32 MiB HTTP/1 request cap that Cloud Run applies.
+`app.json:22` sets one instance, so the in-memory store in `app.js:7` is not split across instances. A cold start or instance recycle can delete bundles.
+The always-free tier includes 2M requests and 360K GB-seconds a month, but only 1 GB of egress. A large share consumes egress fast, so Cloud Run free suits small bundles better than Deno Deploy does.
 
 ## Deploy on Cloudflare Pages
 
@@ -79,36 +127,6 @@ Notes for the Worker:
 - Cloudflare caps request bodies at 100 MB on the free plan and 500 MB on paid plans. The Worker returns 413 when a body exceeds `MAX_BYTES`.
 - `relay-worker/wrangler.toml:14` sets a cron of `0 */6 * * *` (every 6 hours). The cron only reclaims R2 storage. Every `GET` in `relay-worker/src/index.js:106` also checks TTL and returns 404 after expiry, so the 30-minute TTL holds even between crons.
 - The Worker returns permissive CORS headers at `relay-worker/src/index.js:5` and handles `OPTIONS` with 204.
-
-## Local development
-
-1. Install dependencies with `npm install`.
-2. Start the server with `npm run dev`.
-3. Open `http://localhost:3000`.
-
-`scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
-The page and the API run on one origin.
-
-## Layout
-
-```
-app.js                          Hono app: PUT/GET/DELETE /p2p/:token, GET /health. Vercel entry point.
-public/index.html               Share page. The deployment serves it at /.
-functions/p2p/[[token]].js      Cloudflare Pages function for /p2p/*. Wraps app.js.
-functions/health.js             Cloudflare Pages function for /health. Wraps app.js.
-netlify/edge-functions/index.js Netlify edge function. Wraps app.js via hono/netlify.
-netlify.toml                    Netlify configuration: publish = "public", edge routes for /p2p/* and /health.
-package.json                    Runtime dependency is hono. Dev dependency is @hono/node-server.
-scripts/dev.js                  Local dev server: mounts app.js at / and serves public/index.html at /.
-relay-worker/                   Optional Cloudflare Worker relay with R2 persistence.
-  wrangler.toml                 Worker config: R2 bucket pandora-relay, vars, cron.
-  src/index.js                  Worker implementation: same API with R2 and chunked assembly.
-  test.mjs                      Worker self-test with fake R2 bucket.
-```
-
-`app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
-`public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
-
 
 ## Chunked upload protocol
 

@@ -16,7 +16,7 @@
 </head>
 <body>
 <h1>Pandora P2P Sync</h1>
-<p>Hosts the share page and the relay on one origin. Deploy this repo once on Vercel, Netlify, or Cloudflare — no separate service needed. The launcher uploads a filtered zip, this page fetches it.</p>
+<p>Hosts the share page and the relay on one origin. Deploy this repo once on Deno Deploy, Netlify, Cloudflare, or Google Cloud Run — no separate service needed. The launcher uploads a filtered zip, this page fetches it.</p>
 
 <div class="card">
   <h2>Receive</h2>
@@ -32,7 +32,7 @@
 <div class="card">
   <h2>How it works</h2>
   <ul>
-    <li><strong>One deployment:</strong> the page and the relay are the same origin on Vercel, Netlify, or Cloudflare. The launcher <code>PUT</code>s to <code>/p2p/&lt;token&gt;</code>, this page <code>GET</code>s it back.</li>
+    <li><strong>One deployment:</strong> the page and the relay are the same origin on Deno Deploy, Netlify, Cloudflare, or Google Cloud Run. The launcher <code>PUT</code>s to <code>/p2p/&lt;token&gt;</code>, this page <code>GET</code>s it back.</li>
     <li><strong>Ephemeral:</strong> the token is the only auth. Bundles expire after 30 minutes and live in the deployment's memory, so a fresh cold start can lose one.</li>
     <li>The launcher bundle is a zip filtered by <code>ExportOptions</code> (mods/config/etc). Receiver validates every path via <code>SafePath</code>.</li>
   </ul>
