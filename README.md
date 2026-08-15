@@ -8,40 +8,6 @@ The launcher uploads a filtered zip with `PUT /p2p/<token>`.
 The share page fetches the zip with `GET /p2p/<token>` and offers a download.
 The page and the API share the same origin, so no cross-site setup is required.
 
-## Layout
-
-```
-app.js                          Hono app: PUT/GET/DELETE /p2p/:token, GET /health. Shared by all platforms.
-main.ts                         Deno Deploy entry point. Serves public/index.html at / and mounts app.js.
-deno.json                       Maps bare hono imports to npm:hono for Deno.
-server.js                       Node.js server for Google Cloud Run. Serves public/index.html at / and mounts app.js.
-Dockerfile                      Container image for Google Cloud Run. Runs server.js.
-app.json                        Google Cloud Run button config: env vars and instance options.
-public/index.html               Share page. The deployment serves it at /.
-functions/p2p/[[token]].js      Cloudflare Pages function for /p2p/*. Wraps app.js.
-functions/health.js             Cloudflare Pages function for /health. Wraps app.js.
-netlify/edge-functions/index.js Netlify edge function. Wraps app.js via hono/netlify.
-netlify.toml                    Netlify configuration: publish = "public", edge routes for /p2p/* and /health.
-package.json                    Runtime dependency is hono. Dev dependency is @hono/node-server.
-scripts/dev.js                  Local dev server: mounts app.js at / and serves public/index.html at /.
-relay-worker/                   Optional Cloudflare Worker relay with R2 persistence.
-  wrangler.toml                 Worker config: R2 bucket pandora-relay, vars, cron.
-  src/index.js                  Worker implementation: same API with R2 and chunked assembly.
-  test.mjs                      Worker self-test with fake R2 bucket.
-```
-
-`app.js:10` reads `TTL_MINUTES` and `MAX_BYTES` from the platform env or `process.env`.
-`public/index.html:49` uses `location.origin` by default and allows override via `<meta name="p2p-relay">` or `?relay=`.
-
-## Local development
-
-1. Install dependencies with `npm install`.
-2. Start the server with `npm run dev`.
-3. Open `http://localhost:3000`.
-
-`scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
-The page and the API run on one origin.
-
 ## Deploy on Deno Deploy — Recommended
 
 Deno Deploy is the recommended free option. `main.ts:7` serves `public/index.html` at `/` and `main.ts:6` mounts `app.js:46`, so one project hosts the page and the API. The free tier gives you 1M requests, 100 GB of egress, and 15 hours of CPU per month. It has no small request-body cap like serverless function platforms, so the full 512 MiB default works.
@@ -128,62 +94,11 @@ Notes for the Worker:
 - `relay-worker/wrangler.toml:14` sets a cron of `0 */6 * * *` (every 6 hours). The cron only reclaims R2 storage. Every `GET` in `relay-worker/src/index.js:106` also checks TTL and returns 404 after expiry, so the 30-minute TTL holds even between crons.
 - The Worker returns permissive CORS headers at `relay-worker/src/index.js:5` and handles `OPTIONS` with 204.
 
-## Chunked upload protocol
+## Local development
 
-Both `app.js:36` and `relay-worker/src/index.js:16` accept the same optional headers on `PUT /p2p/<token>`:
+1. Install dependencies with `npm install`.
+2. Start the server with `npm run dev`.
+3. Open `http://localhost:3000`.
 
-- `X-Part-Index`: zero-based part number. Default is 0.
-- `X-Total-Parts`: total number of parts. Default is 1.
-
-Rules:
-
-1. Send no headers to do a single-part upload.
-2. Send both headers to do a chunked upload.
-3. The server validates that both headers are integers with `0 <= X-Part-Index < X-Total-Parts`.
-4. The server stores each part separately. `app.js:75` stores it in memory. `relay-worker/src/index.js:93` stores it as `p2p/<token>/part<i>` in R2.
-5. The server assembles only when it receives the last index `X-Part-Index == X-Total-Parts - 1` and the final object does not yet exist.
-6. If any part is missing at assembly time, the server returns 500 `missing part`.
-7. If `X-Total-Parts` differs between parts for the same token, the server returns 400 `bad part headers`.
-8. Assembly concatenates parts in order, stores the final zip at `p2p/<token>`, deletes the part objects, and returns 200.
-9. The TTL starts when assembly completes. `MAX_BYTES` limits each part, so a large bundle can travel as many parts.
-
-## Launcher configuration
-
-Point the launcher at your deployment origin:
-
-```json
-{
-  "p2p_relay_url": "https://<your-deploy>/",
-  "p2p_pages_url": "https://<your-deploy>/"
-}
-```
-
-If you use the Worker relay, set both URLs to the Worker URL and set the meta tag in `public/index.html:50` to the same URL.
-A share link has one of these forms:
-
-- `https://<your-deploy>/?token=<token>`
-- `https://<your-deploy>/p2p/<token>`
-
-`public/index.html:57` accepts a bare token, `?token=`, `?url=`, `?relay=`, or a full `http` link.
-
-## Security and limits
-
-- Token format is `app.js:31` and `relay-worker/src/index.js:3`: 8 to 128 characters, `A-Z a-z 0-9 _ -`. Possession of the token grants access.
-- The receiver validates every zip entry path with `SafePath`.
-- The Hono app (`app.js:7`) stores bundles in memory only. The Worker (`relay-worker/src/index.js:48`) stores bundles in R2 with `customMetadata.uploadedAt`.
-- Memory bundles disappear on cold start or isolate recycle. Share links are short-lived by design.
-- Default caps: 512 MiB and 30 minutes for `app.js:5`, 100 MB and 30 minutes for `relay-worker/wrangler.toml:5`. Override with `MAX_BYTES` and `TTL_MINUTES` in the platform env or `wrangler.toml` vars.
-- `public/index.html:36` shows that bundles are ephemeral and that the token is the only auth.
-
-## API
-
-```
-PUT    /p2p/<token>    Body is application/zip. Returns 200 ok, or 400 bad token, 400 bad part headers, 413 too large, 500 missing part.
-GET    /p2p/<token>    Returns 200 application/zip with Content-Disposition attachment, or 400 bad token, 404 not found after expiry.
-DELETE /p2p/<token>    Returns 204 and deletes the bundle and any parts, or 400 bad token.
-GET    /health         Hono app returns 200 {"ok":true}. Worker returns 200 ok. Both allow health checks.
-OPTIONS /p2p/<token>   Worker returns 204 with CORS headers. Hono app handles CORS via hono/cors.
-GET    /               Share page at public/index.html. Worker also returns 200 pandora relay ok.
-```
-
-CORS for `/p2p/*` is enabled. `app.js:48` uses `hono/cors`. `relay-worker/src/index.js:5` returns `Access-Control-Allow-Origin: *`.
+`scripts/dev.js:7` mounts the Hono app at `/` and serves `public/index.html` at `/`.
+The page and the API run on one origin.
