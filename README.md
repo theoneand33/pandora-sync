@@ -10,7 +10,7 @@ The page and the API share the same origin, so no cross-site setup is required.
 
 ## Deploy on Deno Deploy — Recommended
 
-Deno Deploy is the recommended free option. `main.ts:7` serves `public/index.html` at `/` and `main.ts:6` mounts `app.js:46`, so one project hosts the page and the API. The free tier gives you 1M requests, 100 GB of egress, and 15 hours of CPU per month. It has no small request-body cap like serverless function platforms, so the full 512 MiB default works.
+Deno Deploy is the recommended free option. `main.ts:7` serves `public/index.html` at `/` and `main.ts:6` mounts `app.js:46`, so one project hosts the page and the API. The free tier gives you 1M requests, 20 GB of egress, and 15 hours of CPU per month. It has no small request-body cap like serverless function platforms, so the full 512 MiB default works.
 
 [![Deploy on Deno](https://deno.com/button)](https://console.deno.com/new?clone=https://github.com/theoneand33/pandora-sync)
 
